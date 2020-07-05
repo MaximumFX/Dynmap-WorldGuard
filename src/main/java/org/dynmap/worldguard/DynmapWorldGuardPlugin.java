@@ -1,32 +1,5 @@
 package org.dynmap.worldguard;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.bukkit.Bukkit;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.server.PluginEnableEvent;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.PluginManager;
-import org.dynmap.DynmapAPI;
-import org.dynmap.markers.AreaMarker;
-import org.dynmap.markers.MarkerAPI;
-import org.dynmap.markers.MarkerSet;
-
-import com.sk89q.squirrelid.cache.ProfileCache;
 import com.sk89q.worldedit.math.BlockVector2;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.World;
@@ -41,30 +14,48 @@ import com.sk89q.worldguard.protection.regions.ProtectedPolygonalRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.protection.regions.RegionType;
+import com.sk89q.worldguard.util.profile.cache.ProfileCache;
+import org.bukkit.Bukkit;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.server.PluginEnableEvent;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.dynmap.DynmapAPI;
+import org.dynmap.markers.AreaMarker;
+import org.dynmap.markers.MarkerAPI;
+import org.dynmap.markers.MarkerSet;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class DynmapWorldGuardPlugin extends JavaPlugin {
     private static Logger log;
     private static final String DEF_INFOWINDOW = "<div class=\"infowindow\"><span style=\"font-size:120%;\">%regionname%</span><br /> Owner <span style=\"font-weight:bold;\">%playerowners%</span><br />Flags<br /><span style=\"font-weight:bold;\">%flags%</span></div>";
-    public static final String BOOST_FLAG = "dynmap-boost";
-    Plugin dynmap;
-    DynmapAPI api;
-    MarkerAPI markerapi;
-    BooleanFlag boost_flag;
-    int updatesPerTick = 20;
+    private static final String BOOST_FLAG = "dynmap-boost";
+    private Plugin dynmap;
+    private DynmapAPI api;
+	private BooleanFlag boost_flag;
+    private int updatesPerTick = 20;
 
-    FileConfiguration cfg;
-    MarkerSet set;
-    long updperiod;
-    boolean use3d;
-    String infowindow;
-    AreaStyle defstyle;
-    Map<String, AreaStyle> cusstyle;
-    Map<String, AreaStyle> cuswildstyle;
-    Map<String, AreaStyle> ownerstyle;
-    Set<String> visible;
-    Set<String> hidden;
-    boolean stop; 
-    int maxdepth;
+	private MarkerSet set;
+    private long updPeriod;
+    private boolean use3d;
+    private String infoWindow;
+    private AreaStyle defStyle;
+    private Map<String, AreaStyle> cusStyle;
+    private Map<String, AreaStyle> cusWildStyle;
+    private Map<String, AreaStyle> ownerStyle;
+    private Set<String> visible;
+    private Set<String> hidden;
+    private boolean stop;
+    private int maxDepth;
 
     @Override
     public void onLoad() {
@@ -73,45 +64,45 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
     }
     
     private static class AreaStyle {
-        String strokecolor;
-        String unownedstrokecolor;
-        double strokeopacity;
-        int strokeweight;
-        String fillcolor;
-        double fillopacity;
+        String strokeColor;
+        String unownedStrokeColor;
+        double strokeOpacity;
+        int strokeWeight;
+        String fillColor;
+        double fillOpacity;
         String label;
 
         AreaStyle(FileConfiguration cfg, String path, AreaStyle def) {
-            strokecolor = cfg.getString(path+".strokeColor", def.strokecolor);
-            unownedstrokecolor = cfg.getString(path+".unownedStrokeColor", def.unownedstrokecolor);
-            strokeopacity = cfg.getDouble(path+".strokeOpacity", def.strokeopacity);
-            strokeweight = cfg.getInt(path+".strokeWeight", def.strokeweight);
-            fillcolor = cfg.getString(path+".fillColor", def.fillcolor);
-            fillopacity = cfg.getDouble(path+".fillOpacity", def.fillopacity);
+            strokeColor = cfg.getString(path+".strokeColor", def.strokeColor);
+            unownedStrokeColor = cfg.getString(path+".unownedStrokeColor", def.unownedStrokeColor);
+            strokeOpacity = cfg.getDouble(path+".strokeOpacity", def.strokeOpacity);
+            strokeWeight = cfg.getInt(path+".strokeWeight", def.strokeWeight);
+            fillColor = cfg.getString(path+".fillColor", def.fillColor);
+            fillOpacity = cfg.getDouble(path+".fillOpacity", def.fillOpacity);
             label = cfg.getString(path+".label", null);
         }
 
         AreaStyle(FileConfiguration cfg, String path) {
-            strokecolor = cfg.getString(path+".strokeColor", "#FF0000");
-            unownedstrokecolor = cfg.getString(path+".unownedStrokeColor", "#00FF00");
-            strokeopacity = cfg.getDouble(path+".strokeOpacity", 0.8);
-            strokeweight = cfg.getInt(path+".strokeWeight", 3);
-            fillcolor = cfg.getString(path+".fillColor", "#FF0000");
-            fillopacity = cfg.getDouble(path+".fillOpacity", 0.35);
+            strokeColor = cfg.getString(path+".strokeColor", "#FF0000");
+            unownedStrokeColor = cfg.getString(path+".unownedStrokeColor", "#00FF00");
+            strokeOpacity = cfg.getDouble(path+".strokeOpacity", 0.8);
+            strokeWeight = cfg.getInt(path+".strokeWeight", 3);
+            fillColor = cfg.getString(path+".fillColor", "#FF0000");
+            fillOpacity = cfg.getDouble(path+".fillOpacity", 0.35);
         }
     }
     
-    public static void info(String msg) {
+    private static void info(String msg) {
         log.log(Level.INFO, msg);
     }
-    public static void severe(String msg) {
+    private static void severe(String msg) {
         log.log(Level.SEVERE, msg);
     }
     
-    private Map<String, AreaMarker> resareas = new HashMap<String, AreaMarker>();
+    private Map<String, AreaMarker> resAreas = new HashMap<>();
 
     private String formatInfoWindow(ProtectedRegion region, AreaMarker m) {
-        String v = "<div class=\"regioninfo\">"+infowindow+"</div>";
+        String v = "<div class=\"regioninfo\">"+ infoWindow +"</div>";
         ProfileCache pc = WorldGuard.getInstance().getProfileCache();
         v = v.replace("%regionname%", m.getLabel());
         v = v.replace("%playerowners%", region.getOwners().toPlayersString(pc));
@@ -124,63 +115,60 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             v = v.replace("%parent%", "");
         v = v.replace("%priority%", String.valueOf(region.getPriority()));
         Map<Flag<?>, Object> map = region.getFlags();
-        String flgs = "";
+        String flags = "";
         for(Flag<?> f : map.keySet()) {
-            flgs += f.getName() + ": " + map.get(f).toString() + "<br/>";
+            flags += f.getName() + ": " + map.get(f).toString() + "<br/>";
         }
-        v = v.replace("%flags%", flgs);
+        v = v.replace("%flags%", flags);
         return v;
     }
     
-    private boolean isVisible(String id, String worldname) {
+    private boolean isVisible(String id, String worldName) {
         if((visible != null) && (visible.size() > 0)) {
-            if((visible.contains(id) == false) && (visible.contains("world:" + worldname) == false) &&
-                    (visible.contains(worldname + "/" + id) == false)) {
+            if((!visible.contains(id)) && (!visible.contains("world:" + worldName)) &&
+                    (!visible.contains(worldName + "/" + id))) {
                 return false;
             }
         }
         if((hidden != null) && (hidden.size() > 0)) {
-            if(hidden.contains(id) || hidden.contains("world:" + worldname) || hidden.contains(worldname + "/" + id))
-                return false;
+			return !hidden.contains(id) && !hidden.contains("world:" + worldName) && !hidden.contains(worldName + "/" + id);
         }
         return true;
     }
     
-    private void addStyle(String resid, String worldid, AreaMarker m, ProtectedRegion region) {
-        AreaStyle as = cusstyle.get(worldid + "/" + resid);
+    private void addStyle(String resId, String worldId, AreaMarker m, ProtectedRegion region) {
+        AreaStyle as = cusStyle.get(worldId + "/" + resId);
         if(as == null) {
-            as = cusstyle.get(resid);
+            as = cusStyle.get(resId);
         }
         if(as == null) {    /* Check for wildcard style matches */
-            for(String wc : cuswildstyle.keySet()) {
+            for(String wc : cusWildStyle.keySet()) {
                 String[] tok = wc.split("\\|");
-                if((tok.length == 1) && resid.startsWith(tok[0]))
-                    as = cuswildstyle.get(wc);
-                else if((tok.length >= 2) && resid.startsWith(tok[0]) && resid.endsWith(tok[1]))
-                    as = cuswildstyle.get(wc);
+                if((tok.length == 1) && resId.startsWith(tok[0]))
+                    as = cusWildStyle.get(wc);
+                else if((tok.length >= 2) && resId.startsWith(tok[0]) && resId.endsWith(tok[1]))
+                    as = cusWildStyle.get(wc);
             }
         }
         if(as == null) {    /* Check for owner style matches */
-            if(ownerstyle.isEmpty() != true) {
+            if(!ownerStyle.isEmpty()) {
                 DefaultDomain dd = region.getOwners();
                 PlayerDomain pd = dd.getPlayerDomain();
                 if(pd != null) {
                     for(String p : pd.getPlayers()) {
-                        if(as == null) {
-                            as = ownerstyle.get(p.toLowerCase());
-                            if (as != null) break;
-                        }
-                    }
+						as = ownerStyle.get(p.toLowerCase());
+						if (as != null) break;
+					}
                     if (as == null) {
                         for(UUID uuid : pd.getUniqueIds()) {
-                            as = ownerstyle.get(uuid.toString());
+                            as = ownerStyle.get(uuid.toString());
                             if (as != null) break;
                         }
                     }
                     if (as == null) {
                     	for(String p : pd.getPlayers()) {
                             if (p != null) {
-                                as = ownerstyle.get(p.toLowerCase());
+                                as = ownerStyle.get(p.toLowerCase());
                                 if (as != null) break;
                             }
                         }
@@ -190,7 +178,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
                     Set<String> grp = dd.getGroups();
                     if(grp != null) {
                         for(String p : grp) {
-                            as = ownerstyle.get(p.toLowerCase());
+                            as = ownerStyle.get(p.toLowerCase());
                             if (as != null) break;
                         }
                     }
@@ -198,7 +186,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             }
         }
         if(as == null)
-            as = defstyle;
+            as = defStyle;
 
         boolean unowned = false;
         if((region.getOwners().getPlayers().size() == 0) &&
@@ -210,30 +198,30 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         int fc = 0xFF0000;
         try {
             if(unowned)
-                sc = Integer.parseInt(as.unownedstrokecolor.substring(1), 16);
+                sc = Integer.parseInt(as.unownedStrokeColor.substring(1), 16);
             else
-                sc = Integer.parseInt(as.strokecolor.substring(1), 16);
-           fc = Integer.parseInt(as.fillcolor.substring(1), 16);
-        } catch (NumberFormatException nfx) {
+                sc = Integer.parseInt(as.strokeColor.substring(1), 16);
+           fc = Integer.parseInt(as.fillColor.substring(1), 16);
+        } catch (NumberFormatException ignored) {
         }
-        m.setLineStyle(as.strokeweight, as.strokeopacity, sc);
-        m.setFillStyle(as.fillopacity, fc);
+        m.setLineStyle(as.strokeWeight, as.strokeOpacity, sc);
+        m.setFillStyle(as.fillOpacity, fc);
         if(as.label != null) {
             m.setLabel(as.label);
         }
         if (boost_flag != null) {
             Boolean b = region.getFlag(boost_flag);
-            m.setBoostFlag((b == null)?false:b.booleanValue());
+            m.setBoostFlag(b != null && b);
         }
     }
         
     /* Handle specific region */
-    private void handleRegion(World world, ProtectedRegion region, Map<String, AreaMarker> newmap) {
+    private void handleRegion(World world, ProtectedRegion region, Map<String, AreaMarker> newMap) {
         String name = region.getId();
         /* Make first letter uppercase */
         name = name.substring(0, 1).toUpperCase() + name.substring(1);
-        double[] x = null;
-        double[] z = null;
+        double[] x;
+        double[] z;
                 
         /* Handle areas */
         if(isVisible(region.getId(), world.getName())) {
@@ -264,10 +252,10 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             else {  /* Unsupported type */
                 return;
             }
-            String markerid = world.getName() + "_" + id;
-            AreaMarker m = resareas.remove(markerid); /* Existing area? */
+            String markerId = world.getName() + "_" + id;
+            AreaMarker m = resAreas.remove(markerId); /* Existing area? */
             if(m == null) {
-                m = set.createAreaMarker(markerid, name, false, world.getName(), x, z, false);
+                m = set.createAreaMarker(markerId, name, false, world.getName(), x, z, false);
                 if(m == null)
                     return;
             }
@@ -287,15 +275,15 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             m.setDescription(desc); /* Set popup */
 
             /* Add to map */
-            newmap.put(markerid, m);
+            newMap.put(markerId, m);
         }
     }
     
     private class UpdateJob implements Runnable {
-        Map<String,AreaMarker> newmap = new HashMap<String,AreaMarker>(); /* Build new map */
+        Map<String,AreaMarker> newMap = new HashMap<>(); /* Build new map */
         List<World> worldsToDo = null;
         List<ProtectedRegion> regionsToDo = null;
-        World curworld = null;
+        World curWorld = null;
         
         public void run() {
             if (stop) {
@@ -303,32 +291,32 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             }
             // If worlds list isn't primed, prime it
             if (worldsToDo == null) {
-            	List<org.bukkit.World> w = Bukkit.getWorlds();
-                worldsToDo = new ArrayList<World>();
-                for (org.bukkit.World wrld : w) {
-                	worldsToDo.add(WorldGuard.getInstance().getPlatform().getMatcher().getWorldByName(wrld.getName()));
+            	List<org.bukkit.World> worlds = Bukkit.getWorlds();
+                worldsToDo = new ArrayList<>();
+                for (org.bukkit.World world : worlds) {
+                	worldsToDo.add(WorldGuard.getInstance().getPlatform().getMatcher().getWorldByName(world.getName()));
                 }
             }
             while (regionsToDo == null) {  // No pending regions for world
                 if (worldsToDo.isEmpty()) { // No more worlds?
                     /* Now, review old map - anything left is gone */
-                    for(AreaMarker oldm : resareas.values()) {
-                        oldm.deleteMarker();
+                    for(AreaMarker oldM : resAreas.values()) {
+                        oldM.deleteMarker();
                     }
                     /* And replace with new map */
-                    resareas = newmap;
+                    resAreas = newMap;
                     // Set up for next update (new job)
-                    getServer().getScheduler().scheduleSyncDelayedTask(DynmapWorldGuardPlugin.this, new UpdateJob(), updperiod);
+                    getServer().getScheduler().scheduleSyncDelayedTask(DynmapWorldGuardPlugin.this, new UpdateJob(), updPeriod);
                     return;
                 }
                 else {
-                    curworld = worldsToDo.remove(0);
+                    curWorld = worldsToDo.remove(0);
                     RegionContainer rc = WorldGuard.getInstance().getPlatform().getRegionContainer();
-                    RegionManager rm = rc.get(curworld); /* Get region manager for world */
+                    RegionManager rm = rc.get(curWorld); /* Get region manager for world */
                     if(rm != null) {
                         Map<String,ProtectedRegion> regions = rm.getRegions();  /* Get all the regions */
-                        if ((regions != null) && (regions.isEmpty() == false)) {
-                            regionsToDo = new ArrayList<ProtectedRegion>(regions.values());
+                        if (!regions.isEmpty()) {
+                            regionsToDo = new ArrayList<>(regions.values());
                         }
                     }
                 }
@@ -346,9 +334,9 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
                     depth++;
                     p = p.getParent();
                 }
-                if(depth > maxdepth)
+                if(depth > maxDepth)
                     continue;
-                handleRegion(curworld, pr, newmap);
+                handleRegion(curWorld, pr, newMap);
             }
             // Tick next step in the job
             getServer().getScheduler().scheduleSyncDelayedTask(DynmapWorldGuardPlugin.this, this, 1);
@@ -396,7 +384,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         try {
             MetricsLite ml = new MetricsLite(this);
             ml.start();
-        } catch (IOException iox) {
+        } catch (IOException ignored) {
             
         }
     }
@@ -419,8 +407,8 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
     
     private void activate() {        
         /* Now, get markers API */
-        markerapi = api.getMarkerAPI();
-        if(markerapi == null) {
+		MarkerAPI markerAPI = api.getMarkerAPI();
+        if(markerAPI == null) {
             severe("Error loading dynmap marker API!");
             return;
         }
@@ -436,39 +424,39 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         this.saveConfig();  /* Save updates, if needed */
         
         /* Now, add marker set for mobs (make it transient) */
-        set = markerapi.getMarkerSet("worldguard.markerset");
+        set = markerAPI.getMarkerSet("worldguard.markerset");
         if(set == null)
-            set = markerapi.createMarkerSet("worldguard.markerset", cfg.getString("layer.name", "WorldGuard"), null, false);
+            set = markerAPI.createMarkerSet("worldguard.markerset", cfg.getString("layer.name", "WorldGuard"), null, false);
         else
             set.setMarkerSetLabel(cfg.getString("layer.name", "WorldGuard"));
         if(set == null) {
             severe("Error creating marker set");
             return;
         }
-        int minzoom = cfg.getInt("layer.minzoom", 0);
-        if(minzoom > 0)
-            set.setMinZoom(minzoom);
+        int minZoom = cfg.getInt("layer.minzoom", 0);
+        if(minZoom > 0)
+            set.setMinZoom(minZoom);
         set.setLayerPriority(cfg.getInt("layer.layerprio", 10));
         set.setHideByDefault(cfg.getBoolean("layer.hidebydefault", false));
         use3d = cfg.getBoolean("use3dregions", false);
-        infowindow = cfg.getString("infowindow", DEF_INFOWINDOW);
-        maxdepth = cfg.getInt("maxdepth", 16);
+        infoWindow = cfg.getString("infowindow", DEF_INFOWINDOW);
+        maxDepth = cfg.getInt("maxdepth", 16);
         updatesPerTick = cfg.getInt("updates-per-tick", 20);
 
         /* Get style information */
-        defstyle = new AreaStyle(cfg, "regionstyle");
-        cusstyle = new HashMap<String, AreaStyle>();
-        ownerstyle = new HashMap<String, AreaStyle>();
-        cuswildstyle = new HashMap<String, AreaStyle>();
+        defStyle = new AreaStyle(cfg, "regionstyle");
+        cusStyle = new HashMap<>();
+        ownerStyle = new HashMap<>();
+        cusWildStyle = new HashMap<>();
         ConfigurationSection sect = cfg.getConfigurationSection("custstyle");
         if(sect != null) {
             Set<String> ids = sect.getKeys(false);
             
             for(String id : ids) {
                 if(id.indexOf('|') >= 0)
-                    cuswildstyle.put(id, new AreaStyle(cfg, "custstyle." + id, defstyle));
+                    cusWildStyle.put(id, new AreaStyle(cfg, "custstyle." + id, defStyle));
                 else
-                    cusstyle.put(id, new AreaStyle(cfg, "custstyle." + id, defstyle));
+                    cusStyle.put(id, new AreaStyle(cfg, "custstyle." + id, defStyle));
             }
         }
         sect = cfg.getConfigurationSection("ownerstyle");
@@ -476,22 +464,22 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             Set<String> ids = sect.getKeys(false);
             
             for(String id : ids) {
-                ownerstyle.put(id.toLowerCase(), new AreaStyle(cfg, "ownerstyle." + id, defstyle));
+                ownerStyle.put(id.toLowerCase(), new AreaStyle(cfg, "ownerstyle." + id, defStyle));
             }
         }
         List<String> vis = cfg.getStringList("visibleregions");
         if(vis != null) {
-            visible = new HashSet<String>(vis);
+            visible = new HashSet<>(vis);
         }
         List<String> hid = cfg.getStringList("hiddenregions");
         if(hid != null) {
-            hidden = new HashSet<String>(hid);
+            hidden = new HashSet<>(hid);
         }
 
         /* Set up update job - based on periond */
         int per = cfg.getInt("update.period", 300);
         if(per < 15) per = 15;
-        updperiod = (long)(per*20);
+        updPeriod = per*20;
         stop = false;
         
         getServer().getScheduler().scheduleSyncDelayedTask(this, new UpdateJob(), 40);   /* First time is 2 seconds */
@@ -504,7 +492,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             set.deleteMarkerSet();
             set = null;
         }
-        resareas.clear();
+        resAreas.clear();
         stop = true;
     }
 
